@@ -17,60 +17,55 @@ namespace Plugin2
             IOrganizationService service = serviceFactory.CreateOrganizationService(context.UserId);
             ITracingService tracingService = (ITracingService)serviceProvider.GetService(typeof(ITracingService));
 
-            Entity ConviteDoEvento = GetConviteDoEventoEntity(context);//Pegando tabela a partir do contexto de execução
+            Entity ConviteDoEvento = GetConviteDoEventoEntity(context, tracingService);
             try
             {
-                if (ConviteDoEvento.Contains("fyi_conta")) //Se o campo tiver preenchido
+                if (ConviteDoEvento.Contains("fyi_conta"))
                 {
-                    UpdateAccount(context, service, ConviteDoEvento, ConviteDoEvento.Id); //Execução do metodo de atualizar o campo ultimo evento
-                }              
+                    UpdateAccount(context, service, ConviteDoEvento, tracingService);
+                }
             }
             catch (Exception ex)
             {
                 throw new InvalidPluginExecutionException(ex.ToString());
-
             }
         }
-        private static void UpdateAccount(IPluginExecutionContext context, IOrganizationService service, Entity ConviteDoEvento, Guid ConviteDoEventoID) //Contexto, serviço, tabela convite do evento, e o ID do convite
+        private static void UpdateAccount(IPluginExecutionContext context, IOrganizationService service, Entity ConviteDoEvento, ITracingService tracingService)
         {
-            Guid IDcontaDoConvite = ((EntityReference)ConviteDoEvento["fyi_conta"]).Id; //Pegando Id da conta a partir do campo Conta do Formulario Convite do Evento
+            Guid IDcontaDoConvite = ((EntityReference)ConviteDoEvento["fyi_conta"]).Id;
+            Guid IDdoEvento = ((EntityReference)ConviteDoEvento["fyi_evento"]).Id;
 
-            Entity account = RetriveAccount(service, IDcontaDoConvite); //Pegando formulario Conta usando o serviço e o ID
+            Entity account = RetriveAccount(service, IDcontaDoConvite);
 
             if (context.MessageName == "Create")
             {
-                account["fyi_ultimoevento"] = new EntityReference("fyi_convitedoevento", ConviteDoEventoID); // Atualizando campo ultimo evento da tabela conta             
-                service.Update(account); 
+                account["fyi_ultimoevento2"] = new EntityReference("fyi_tabelaeventos", IDdoEvento);
+                service.Update(account);
             }
-            //else
-            //{
-            //    if (context.MessageName == "Delete")
-            //    {
-            //        account["fyi_totaldeoportunidades"] = totalDeOportunidades - 1;
+            else if (context.MessageName == "Delete")
+            {
+                account["fyi_ultimoevento2"] = null;
+            }
 
-            //    }
-            //}
-            //service.Update(account);
+            service.Update(account);
         }
         private static Entity RetriveAccount(IOrganizationService service, Guid IDcontaDoConvite)
         {
-            return service.Retrieve("account", IDcontaDoConvite, new ColumnSet("fyi_ultimoevento"));
-        }       
-        private static Entity GetConviteDoEventoEntity(IPluginExecutionContext context)
+            return service.Retrieve("account", IDcontaDoConvite, new ColumnSet("fyi_ultimoevento2"));
+        }
+        private static Entity GetConviteDoEventoEntity(IPluginExecutionContext context, ITracingService tracingService)
         {
-            Entity ConviteDoEvento = (Entity)context.InputParameters["Target"]; //Atribuindo parametro "Target" para a Entidade 
+            Entity ConviteDoEvento = new Entity();
 
-            if (context.MessageName == "Create" || context.MessageName == "Update") //Obrigátório o uso do Target para Message Update e Create
+            if (context.MessageName == "Create")
             {
                 ConviteDoEvento = (Entity)context.InputParameters["Target"];
             }
-            //else
-            //{
-            //    if (context.MessageName == "Delete")
-            //    {
-            //        ConviteDoEvento = (Entity)context.PreEntityImages["PreImage"];
-            //    }
-            //}
+            else if (context.MessageName == "Delete")
+            {
+                ConviteDoEvento = (Entity)context.PreEntityImages["PreImage"];
+
+            }
             return ConviteDoEvento;
         }
     }
